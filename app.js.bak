@@ -1,0 +1,73 @@
+var restify = require('restify');
+var builder = require('botbuilder');
+var cognitiveservices = require('botbuilder-cognitiveservices');
+
+//=========================================================
+// Bot Setup
+//=========================================================
+
+// Setup Restify Server
+var server = restify.createServer();
+server.listen(process.env.port || process.env.PORT || 3978, function () {
+   console.log('%s listening to %s', server.name, server.url); 
+});
+  
+// Create chat bot
+var connector = new builder.ChatConnector({
+appId: process.env.MICROSOFT_APP_ID,
+appPassword: process.env.MICROSOFT_APP_PASSWORD
+});
+var bot = new builder.UniversalBot(connector);
+server.post('/api/messages', connector.listen());
+
+//=========================================================
+// Recognizers
+//=========================================================
+
+  var qnarecognizer = new cognitiveservices.QnAMakerRecognizer({
+	knowledgeBaseId: '9d543af7-18bf-4254-b63c-fc82bc36d8fc', 
+	subscriptionKey: '60a4625ac2dd4698ac93cfeb5783f10b',
+	top: 4});
+
+	var basicQnAMakerDialog = new cognitiveservices.QnAMakerDialog({
+	recognizers: [qnarecognizer],
+	defaultMessage: 'No match! Try changing the query terms!',
+	qnaThreshold: 0.3
+});
+
+//var model='set your luis model uri';
+var model = 'https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/1e36add5-ac0f-430e-9e27-7aeef39000fa?subscription-key=5e134c07eb614b359077662778e60245&spellCheck=true&verbose=true&timezoneOffset=0&q=';
+
+var recognizer = new builder.LuisRecognizer(model);
+
+//=========================================================
+// Bot Dialogs
+//=========================================================
+var intents = new builder.IntentDialog({ recognizers: [recognizer, qnarecognizer] });
+bot.dialog('/', intents);
+
+//intents.matches('SearchHotels', builder.DialogAction.send('Inside LUIS Intent 1.'));
+
+intents.matches('SearchHotels', builder.DialogAction.send('Inside LUIS Intent 1.')
+
+);
+
+intents.matches('ShowHotelsReviews', builder.DialogAction.send('Inside LUIS Intent 2.'));
+
+intents.matches('qna', [
+    //bot.dialog('Help', basicQnAMakerDialog)
+   // function(session){
+   //     session.send('Sorry!! No match  HELP!!');
+//	}
+	function (session, args, next) {
+        var answerEntity = builder.EntityRecognizer.findEntity(args.entities, 'answer');
+        session.send(answerEntity.entity);
+		//bot.dialog('/', basicQnAMakerDialog);
+	}
+]);
+
+intents.onDefault([
+    function(session){
+        session.send('Sorry!! No match!!');
+	}
+]);
